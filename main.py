@@ -100,4 +100,4 @@ async def print_welcome_message(guild):
         print("[CONSOLE] Could not print welcome message: no default channel found")
 
 
-client.run("OTQ0NjU1NjQ2MTU3MDY2Mjgw.YhExIA.0PVQKlBrpnWb71xS1LDIN5S_hKs")
+client.run(token)
