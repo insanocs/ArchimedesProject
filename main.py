@@ -89,6 +89,7 @@ if __name__ == '__main__':
     print('[CONSOLE] All cogs loaded.')
 
 async def print_welcome_message(guild):
+    #yes this is straight from starlight glimmer
     """Print a welcome message when joining a new server."""
     channels = (x for x in guild.channels if x.permissions_for(guild.me).send_messages and type(x) is TextChannel)
     c = next((x for x in channels if x.name == "general"), next(channels, None))
