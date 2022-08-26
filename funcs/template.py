@@ -23,3 +23,5 @@ def saveTemplate(name, img, coords, canvas, factionID):
         return 2
     else:
         return 1
+def saveData(factionID):
+    pass

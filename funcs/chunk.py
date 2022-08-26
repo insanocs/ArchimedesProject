@@ -1,179 +1,110 @@
-import requests
+from time import time
+import asyncio
+import httpx
 import numpy as np
-import cv2
-from io import BytesIO
-from PIL import Image, ImageChops
-from time import sleep
+from PIL import Image, ImageOps, ImageChops
 
-colors_earth = [[202,227,255],
-    [255,255,255],
-    [255,255,255],
-    [228,228,228],
-    [196,196,196],
-    [136,136,136],
-    [78,78,78],
-    [0,0,0],
-    [244,179,174],
-    [255,167,209],
-    [255,84,178],
-    [255,101,101],
-    [229,0,0],
-    [154,0,0],
-    [254,164,96],
-    [229,149,0],
-    [160,106,66],
-    [96,64,40],
-    [245,223,176],
-    [255,248,137],
-    [229,217,0],
-    [148,224,68],
-    [2,190,1],
-    [104,131,56],
-    [0,101,19],
-    [202,227,255],
-    [0,211,221],
-    [0,131,199],
-    [0,0,234],
-    [25,25,115],
-    [207,110,228],
-    [130,0,128]
-    ]
-colors_moon = [[49,46,47],[99,92,90],[49,46,47],[99,92,90],[129,119,107],[198,181,165],[255,237,212],[150,86,122],[202,112,145],[96,67,79],[136,79,94],[175,101,103],[195,124,107],[221,153,126],[233,181,140],[198,139,91],[140,89,74],[94,68,63],[225,173,86],[248,207,142],[239,220,118],[206,190,85],[157,159,55],[114,121,43],[81,94,46],[69,100,79],[80,134,87],[187,209,138],[91,84,108],[106,113,137],[122,148,156],[174,215,185]]
-colors_1bit = [[0,0,0],[255,255,255],[0,0,0],[255,255,255]]
+class TemplateSt:
+    def __init__(self):
+        self.totalChunks = 0
+        self.madeChunks = 0
+        self.messageSent = True
+        self.timeMessage = 0
+        self.thispc = 20
+    def percentage(self):
+        return 100*(self.madeChunks/self.totalChunks)
+    def thisPercentage(self):
+        self.thispc = self.thispc + 20
 
-def get_chunk(x, y, canvas):
-    if canvas == "m":
-        num_canvas = 1
-        canv_size = 16384
-    elif canvas == "1":
-        num_canvas = 7
-        canv_size = 65536
-    else:
-        num_canvas = 0
-        canv_size = 65536
-    chunk_y = ((canv_size // 2) + int(y)) // 256
-    chunk_x = ((canv_size // 2) + int(x)) // 256
-    # get data from the server
-    data = requests.get(f'https://pixelplanet.fun/chunks/{num_canvas}/{chunk_x}/{chunk_y}.bmp').content
-    # construct a numpy array from it
-    arr = np.zeros((256, 256), np.uint8)
-    if len(data) != 65536:
-        return arr
-        print('Data size differs from 65536')
-    for i in range(65536):
-        c = data[i]
-        # protected pixels are shifted up by 128
-        if c >= 128:
-            c = c - 128
-        arr[i // 256, i % 256] = c
-    return arr
+async def compareImg(inter, coords, filename):
+    template = TemplateSt()
+    start_time = time()
+    img = Image.open(f"{filename}").convert("RGBA")
+    canvas = 0
+    width, height = img.size
 
-def get_chunks(xs, ys, w, h, canvas):
-    xs, ys, w, h = int(xs), int(ys), int(w), int(h)
-    if canvas == "m":
-        num_canvas = 1
-        canv_size = 16384
-    elif canvas == "1":
-        num_canvas = 7
-        canv_size = 65536
-    else:
-        num_canvas = 0
-        canv_size = 65536
-    c_start_y = ((canv_size // 2) + ys) // 256
-    c_start_x = ((canv_size // 2) + xs) // 256
-    c_end_y = ((canv_size // 2) + ys + h) // 256
-    c_end_x = ((canv_size // 2) + xs + w) // 256
+    me = httpx.get("https://pixelplanet.fun/api/me").json()
+    colors = me["canvases"][str(canvas)]["colors"]
+    csz = me["canvases"][str(canvas)]["size"]
+    ch = csz // 2
+
+    c_start_y = (ch + coords[1]) // 256
+    c_start_x = (ch + coords[0]) // 256
+    c_end_y = (ch + coords[1] + width) // 256
+    c_end_x = (ch + coords[0] + height) // 256
+
     c_occupied_y = c_end_y - c_start_y + 1
     c_occupied_x = c_end_x - c_start_x + 1
-    if canvas == "m":
-        colorsf = colors_moon
-    elif canvas == "1":
-        colorsf = colors_1bit
-    else:
-        colorsf = colors_earth
-    # the final image
-    data = np.zeros((0, c_occupied_x * 256), np.uint8)
-    # go through the chunks
-    for y in range(c_occupied_y):
-        # the row
-        row = np.zeros((256, 0), np.uint8)
-        for x in range(c_occupied_x):
-            # append the chunk to the row
-            row = np.concatenate((row, get_chunk((int(x) * 256) + int(xs), (int(y) * 256) + int(ys), canvas)), axis=1)
-        # append the row to the image
-        data = np.concatenate((data, row), axis=0)
-    img = np.zeros((256 * c_occupied_y, 256 * c_occupied_x, 3), np.uint8)
-    for y in range(256 * c_occupied_y):
-        for x in range(256 * c_occupied_x):
-            r, g, b = colorsf[data[y, x]]
-            img[y, x] = (b, g, r)
-    h, w, rd = img.shape
-    cv2.imwrite('multiplos.png', img)
-    return h, w, c_occupied_x, c_occupied_y
 
-def differ(xs, ys, img, canvas):
-    if canvas == "m":
-        num_canvas = 1
-        canv_size = 16384
-    elif canvas == "1":
-        num_canvas = 7
-        canv_size = 65536
-    else:
-        num_canvas = 0
-        canv_size = 65536
-    c_start_x = ((canv_size // 2) + int(xs)) // 256
-    c_start_y = ((canv_size // 2) + int(ys)) // 256
-    start_in_d_x = int(xs) + ((canv_size // 2) - (int(c_start_x) * 256))
-    start_in_d_y = int(ys) + ((canv_size // 2) - (int(c_start_y) * 256))
-    #print(start_in_d_x)
-    #print(start_in_d_y)
-    data_im = Image.open("multiplos.png")
-    #print(img.size[0], img.size[1])
-    kek = data_im.crop((start_in_d_x, start_in_d_y, start_in_d_x + img.size[0], start_in_d_y + img.size[1])).convert('RGBA')
 
-    datas3 = img.getdata()
-    datas4 = kek.getdata()
+    size = me["canvases"][str(canvas)]["size"]
 
-    toTransparent = []
-    index = 0
-    print(img.size)
-    print(datas3)
-    for item in datas3:
-        if item[3] == 0:
-            toTransparent.append((255, 255, 255, 17))
-            index += 1
-        else:
-            toTransparent.append((datas4[index][0], datas4[index][1], datas4[index][2]))
-            index += 1
+    image = Image.new("RGB", (c_occupied_x*256, c_occupied_y*256))
 
-    kek.putdata(toTransparent)
+    async def get_chunk(client, x, y, x_value, y_value):
+        resp = await client.get(
+            f"https://pixelplanet.fun/chunks/0/{x}/{y}.bmp")
 
-    diff = ImageChops.difference(img, kek)
-    datas = diff.getdata()
+        resp = resp.content
 
-    errors = 0
-    non_transp = 0
-    newData = []
+        chunk = np.zeros((256, 256, 3), np.uint8)
 
-    diff.save('b4.png')
+        for i, value in enumerate(resp):
+            chunk[i // 256, i % 256] = colors[value] if value < 128 else colors[value - 128]
 
-    for item in datas:
-        if item[0] == 0 and item[1] == 0 and item[2] == 0 and item[3] == 0:
-            non_transp += 1
-            newData.append((255, 255, 255, 0))
-        elif item[3] == 17:
-            newData.append((255, 255, 255, 0))
-        else:
-            non_transp += 1
-            errors += 1
-            newData.append((255, 0, 0, 255))
+        chunk_image = Image.fromarray(chunk, mode="RGB")
+        image.paste(chunk_image, (256*x_value, 256*y_value))
+        template.madeChunks = template.madeChunks + 1
+        if template.percentage() > template.thispc:
+            template.thisPercentage()
+            print(template.thispc)
+            await inter.edit_original_message(f'Getting your fresh chunks: {template.madeChunks}/{template.totalChunks} ({round(template.percentage())}%)\n[{":flag_de:"*(round(template.percentage()/10))}{":flag_pl:"*(10-round(template.percentage()/10))}]')
 
-    diff.putdata(newData)
+    async def mainFunc():
 
-    diff.save('after.png')
+        async with httpx.AsyncClient() as client:
 
-    ungrayed = img.convert('LA')
-    ungrayed.save('ungrayed.png')
-    new_grayed = Image.open('ungrayed.png').convert('RGBA')
-    new_grayed.paste(diff, (0,0), diff)
-    return errors, non_transp, new_grayed
+            tasks = []
+            x_value, y_value = 0, 0
+            for y_index in range(c_start_y, c_end_y+1):
+                for x_index in range(c_start_x, c_end_x+1):
+                    tasks.append(asyncio.ensure_future(get_chunk(client, x_index, y_index, x_value, y_value)))
+                    template.totalChunks = template.totalChunks + 1
+                    x_value += 1
+                y_value += 1
+                x_value = 0
+            await inter.edit_original_message(f"Getting your fresh chunks: 0/{template.totalChunks} (0%)\n[{':flag_pl:'*10}]")
+            await asyncio.gather(*tasks)
+    await mainFunc()
+    await inter.edit_original_message(f"Getting your fresh chunks: {template.totalChunks}/{template.totalChunks} (100%)\n[{':flag_de:'*10}] \nComparing your chunks.")
+    c_start_x = (ch + coords[0]) // 256
+    c_start_y = (ch + coords[1]) // 256
+    start_in_d_x = coords[0] + (ch - (c_start_x) * 256)
+    start_in_d_y = coords[1] + (ch - (c_start_y) * 256)
+
+    image = image.crop((start_in_d_x, start_in_d_y, start_in_d_x + width, start_in_d_y + height)).convert("RGBA")
+
+    black = Image.new('1', image.size, 0)
+    white = Image.new('1', image.size, 1)
+    mask = Image.composite(white, black, img)
+
+    def lut(i):
+        return 255 if i > 0 else 0
+
+    with ImageChops.difference(img, image) as error_mask:
+        error_mask = error_mask.point(lut).convert('L').point(lut).convert('1')
+        error_mask = Image.composite(error_mask, black, mask)
+
+    tot = np.array(mask).sum()
+    err = np.array(error_mask).sum()
+
+    img.convert('LA').save("grayed.png")
+    new_grayed = Image.open("grayed.png").convert("RGBA")
+
+    image2 = Image.composite(Image.new('RGBA', image.size, (255, 0, 0)), new_grayed, error_mask).save("difference.png")
+
+    print(f"{tot-err}/{tot}px ({round(((tot-err)*100) / tot)}%)")
+
+    print(round(time() - start_time, 2))
+
+    return tot, err, (time() - start_time)

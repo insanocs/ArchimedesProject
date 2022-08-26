@@ -2,7 +2,6 @@ from xmlrpc import client
 import disnake
 from disnake.ext import commands
 from disnake.ext.commands import Command, HelpCommand
-from discord_components import DiscordComponents, ComponentsBot, Button
 import os
 class Basics(commands.Cog):
 
@@ -19,12 +18,6 @@ class Basics(commands.Cog):
         string = string.lower()
         return [lang for lang in LANGUAGES if string in lang.lower()]
 
-    @commands.cooldown(1, 5)
-    @commands.command()
-    async def button(self, ctx):
-        await ctx.channel.send("Hello, World!", components = [Button(label = "WOW button!", custom_id = "button1")],)
-        interaction = await self.client.wait_for("button_click", check = lambda i: i.custom_id == "button1")
-        await interaction.respond(content = "Button clicked!", ephemeral=False)
     @commands.slash_command()
     async def canvaslist(self, ctx):
         await inter.response.send_message("Canvas list: \n'e':earth \n'1':1bit \n'm':moon")

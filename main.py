@@ -1,7 +1,6 @@
 import disnake
 from disnake.ext import commands
 from disnake import TextChannel
-from discord_components import DiscordComponents, ComponentsBot, Button
 import os
 from configparser import ConfigParser
 #merda ipnicial
@@ -23,11 +22,11 @@ except:
 print(f'[CONSOLE] Loaded prefix as: {prefix}.')
 #config do bote
 client = commands.Bot(command_prefix = f"{prefix}")
-DiscordComponents(client)
 #disnake presence. se o bot for banido por causa de erros, mudar isso pra uma task async
 @client.event
 async def on_ready():
     await client.change_presence(status=disnake.Status.idle, activity=disnake.Game(name=f"Running on {len(client.guilds)} factions!"))
+    print(client.guilds)
     print(f'[CONSOLE] Bot running!')
 
 #só pra logging
