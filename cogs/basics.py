@@ -9,14 +9,14 @@ class Basics(commands.Cog):
         self.client = client
 
     @commands.slash_command(description='Answers the bot\'s invite to be shared')
-    async def invite(self, inter: disnake.ApplicationCommandInteraction, template: str):
+    async def invite(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.send_message('Invite PHI with https://discord.com/api/oauth2/authorize?client_id=944655646157066280&permissions=0&scope=bot', file=disnake.File('giphy.gif'))
 
-    @invite.autocomplete("template")
-    async def template_autocomp(self, inter: disnake.ApplicationCommandInteraction, string: str):
-        LANGUAGES = [f"{inter.guild.id}", f"{inter.guild.name}","typescript", "java", "rust", "lisp", "elixir"]
-        string = string.lower()
-        return [lang for lang in LANGUAGES if string in lang.lower()]
+    #@invite.autocomplete("template")
+    #async def template_autocomp(self, inter: disnake.ApplicationCommandInteraction, string: str):
+    #    LANGUAGES = [f"{inter.guild.id}", f"{inter.guild.name}","typescript", "java", "rust", "lisp", "elixir"]
+    #    string = string.lower()
+    #    return [lang for lang in LANGUAGES if string in lang.lower()]
 
     @commands.slash_command()
     async def canvaslist(self, ctx):
