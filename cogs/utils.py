@@ -52,7 +52,7 @@ class Utils(commands.Cog):
             await inter.response.send_message("The limit is 10.")
         else:
             await inter.response.send_message(
-                embed=embeds[page - 1], view=Menu(embeds, page)
+                embed=embeds[page - 1], view=Menu(embeds, inter.author, page)
             )
 
     @commands.cooldown(1, 5)
@@ -80,7 +80,7 @@ class Utils(commands.Cog):
             await inter.response.send_message("The limit is 10.")
         else:
             await inter.response.send_message(
-                embed=embeds[page - 1], view=Menu(embeds, page)
+                embed=embeds[page - 1], view=Menu(embeds, inter.author, page)
             )
 
 

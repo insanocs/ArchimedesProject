@@ -88,22 +88,9 @@ class Diff(commands.Cog):
                                 await inter.response.send_message(f"Template successfully created as {name}")
                                 print(f"Template created as {name} for {inter.guild.id}")
                         except IndexError as e:
-                            print('[EXPECTED ERROR] ' + e)
-                            print('[CONSOLE] User template is attached.')
-                            attachment = ctx.message.attachments[0]
-                            url = attachment.url
-                            response = requests.get(url, stream=True)
-                            img = Image.open(BytesIO(response.content)).convert('RGBA')
-                            saveResult = template.saveTemplate(name, img, [str(x),str(y)], canvas, inter.guild.id)
-                            if saveResult == 0:
-                                await inter.response.send_message("Seems like your faction still need a setup. Use p!setup (name)")
-                            elif saveResult == 1:
-                                await inter.response.send_message("Another template has already been created with that name.")
-                            elif saveResult == 2:
-                                await inter.response.send_message(f"Template successfully created as {name}")
-                                print(f"Template created as {name} for {ctx.message.guild.id}")
+                            await inter.response.send_message(f"Sorry I couldn't find your image. Try attaching it to a discord message and linking it on the command.'")
                 except Exception as e:
-                    await inter.response.send_message(f'X and Y arguments must be numbers. Try p!help  for more info')
+                    await inter.response.send_message(f'Something seems to have gone wrong. Is your X and Y numbers?')
                     print(f'[ERROR] X and Y arguments must be numbers. {e}')
                     return
             else:
