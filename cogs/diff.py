@@ -141,23 +141,40 @@ class Diff(commands.Cog):
         print('starting to plot')
         xx = []
         print(f'processed data len: {len(processed_data)}')
-        print(len(processed_data)/2)
-        for i in range(0, 16):
-            print(f'appended {i}')
-            xx.append(i)
+        print(processed_data)
+        diffs=0
+        for i in range(0, 32):
+            if (i%2) != 0: #SE É IMPAR
+                if processed_data[i] == 0:
+                    pass
+                else:
+                    xx.append((processed_data[32-1]-processed_data[i])/60/60)
+                    diffs = diffs + 1
+            else:
+                pass
         print('xx appended')
         yy = []
         for i in range(0, len(processed_data)):
             if (i%2) == 0:
-                yy.append(100*processed_data[i]/tot)
+                if processed_data[i+1] == 0:
+                    pass
+                else:
+                    yy.append(100*processed_data[i]/tot)
             else: 
                 pass
-        print('yy appended')
-        plt.plot(xx,yy)
-        plt.title(f'{tempName} percentage in the last 6 diffs')
-        plt.savefig('plot.png')
-        print('plot created')
-        plt.close()
+        print(xx)
+        print(yy)
+        with plt.style.context('dark_background'):
+            print('yy appended')
+            plt.plot(xx,yy, 'g-o')
+            print('plot created')
+            plt.title(f'{tempName} percentage in the last {diffs} diffs')
+            plt.xlim(max(xx), min(xx))
+            plt.ylabel('Percentage')
+            plt.xlabel('Hours since this diff')
+            plt.savefig('plot.png')
+            print('plot created')
+            plt.close()
         print('plot closed')
         embed=disnake.Embed(title="Teleport to coordinates", url=f"https://www.pixelplanet.fun/#d,{x},{y},10", description=f"This took the bot {elapsed:.1f} seconds", color=0x00ff00)
         embed.set_author(name="Template progress", url="https://www.google.com.br/", icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA")

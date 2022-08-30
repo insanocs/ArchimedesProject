@@ -25,7 +25,7 @@ client = commands.Bot(command_prefix = f"{prefix}")
 #disnake presence. se o bot for banido por causa de erros, mudar isso pra uma task async
 @client.event
 async def on_ready():
-    await client.change_presence(status=disnake.Status.idle, activity=disnake.Game(name=f"Running on {len(client.guilds)} factions!"))
+    await client.change_presence(status=disnake.Status.online, activity=disnake.Game(name=f"Running on {len(client.guilds)} factions!"))
     print(client.guilds)
     print(f'[CONSOLE] Bot running!')
 
