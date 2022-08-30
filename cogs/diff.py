@@ -126,18 +126,33 @@ class Diff(commands.Cog):
         tot, err, elapsed = await chunk.compareImg(inter,[int(x),int(y)],f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",tempName, 'diff')
         dataBase.writeNewNumeric(inter.guild.id, tempName, time.time(), (tot-err))
         print(f'[CONSOLE] Unpacking .csv data')
-        d1, t1, d2, t2, d3, t3, d4, t4, d5, t5, d6, t6 = dataBase.readNumericData(inter.guild.id, tempName)
-        print(d1,t1, d2, t2, d3, t3, d4, t4, d5, t5, d6, t6)
-        pixel_rate = (d6-d5)/((t6-t5)/60/60)
+        processed_data = dataBase.readNumericData(inter.guild.id, tempName)
+        print('data returned')
+        print(f'processed_data[-2]:{processed_data[-2]} processed_data[-4]: {processed_data[-4]} processed_data[-1]: {processed_data[-1]} processed_data[-3]: {processed_data[-3]}')
+        print(processed_data[-2]-processed_data[-4])
+        pixel_rate = (processed_data[-2]-processed_data[-4])/((processed_data[-1]-processed_data[-3])/60/60)
+        print(pixel_rate)
         if pixel_rate == 0:
             expected_time = f'This is not going anywhere. 0 px/h'
         if pixel_rate > 0:
             expected_time = f'{(tot/pixel_rate) if (tot/pixel_rate) < 36 else (tot/pixel_rate/24):.2f} {"hours" if (tot/pixel_rate) < 36 else "days"}'
         if pixel_rate < 0:
             expected_time = f'{(tot/pixel_rate) if abs(tot/pixel_rate) < 36 else (tot/pixel_rate/24):.2f} {"hours" if abs(tot/pixel_rate) < 36 else "days"}'
-
-        xx = [1,2,3,4,5,6]
-        yy = [100*(d1/tot),100*(d2/tot),100*(d3/tot),100*(d4/tot),100*(d5/tot),100*(d6/tot)]
+        print('starting to plot')
+        xx = []
+        print(f'processed data len: {len(processed_data)}')
+        print(len(processed_data)/2)
+        for i in range(0, 16):
+            print(f'appended {i}')
+            xx.append(i)
+        print('xx appended')
+        yy = []
+        for i in range(0, len(processed_data)):
+            if (i%2) == 0:
+                yy.append(100*processed_data[i]/tot)
+            else: 
+                pass
+        print('yy appended')
         plt.plot(xx,yy)
         plt.title(f'{tempName} percentage in the last 6 diffs')
         plt.savefig('plot.png')
@@ -148,10 +163,10 @@ class Diff(commands.Cog):
         embed.set_author(name="Template progress", url="https://www.google.com.br/", icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA")
         embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256")
         embed.add_field(name="Placed / Needed", value=f"{tot - err:,} / {tot:,} ({100*((tot-err)/tot):.1f}%)", inline=True)
-        embed.add_field(name="Errors", value=f"{err:,} ({d6-d5})", inline=False)
-        embed.add_field(name="Pixel rate", value=f"{f'{round(pixel_rate)} px/h' if d5 != 0 else 'NaN px/h'}", inline=False)
+        embed.add_field(name="Errors", value=f"{err:,} ({processed_data[-2]-processed_data[-4]})", inline=False)
+        embed.add_field(name="Pixel rate", value=f"{f'{round(pixel_rate)} px/h' if processed_data[-4] != 0 else 'NaN px/h'}", inline=False)
         embed.add_field(name="Expected time at this rate", value=f"{expected_time}", inline=True)
-        embed.set_footer(text=f"Last time this template was diffed: {time.ctime(t5)}")
+        embed.set_footer(text=f"Last time this template was diffed: {time.ctime(processed_data[-3])}")
         embed.set_image(file=disnake.File("difference.png"))
         view = DiffButton(f'https://www.pixelplanet.fun/#d,{x},{y},10')
         await inter.edit_original_message(embed=embed, view=view)
