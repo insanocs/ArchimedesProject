@@ -16,6 +16,8 @@ canvas = {
     8: "🏆· Top10",
 }
 
+canvas_convert = {"e": "0", "m": "1", "1": "7"}
+
 
 class Pixelplanet:
     async def get_online() -> list:
@@ -65,18 +67,17 @@ class Pixelplanet:
 
 class PlanetHistory:
     def __init__(self, canvas, start, filename, day, month, year):
-        self.canvas = 0
+        self.canvas = canvas_convert[canvas]
         self.day = day
         self.month = month
         self.year = year
         self.imgs = []
 
         img = Image.open(f"{filename}").convert("RGBA")
-        canvas = 0
         size = img.size
 
         me = httpx.get("https://pixelplanet.fun/api/me").json()
-        csz = me["canvases"][str(canvas)]["size"]
+        csz = me["canvases"][self.canvas]["size"]
         ch = csz // 2
 
         self.start_y = (ch + int(start[1])) // 256
