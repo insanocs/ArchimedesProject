@@ -1,9 +1,7 @@
-
 config.ini
 asyncTest.py
 cogs/__pycache__/Diff.cpython-310.pyc
 *.pyc
 config.ini
 *.png
-*.pyc
 config.ini

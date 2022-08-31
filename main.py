@@ -1,8 +1,10 @@
-import disnake
-from disnake.ext import commands
-from disnake import TextChannel
 import os
 from configparser import ConfigParser
+
+import disnake
+from disnake import TextChannel
+from disnake.ext import commands
+
 #merda ipnicial
 print(f"[CONSOLE] Starting.")
 print(f"[CONSOLE] List of factions: {os.listdir('factions/')}.")
@@ -23,6 +25,11 @@ print(f'[CONSOLE] Loaded prefix as: {prefix}.')
 #config do bote
 client = commands.Bot(command_prefix = f"{prefix}")
 #disnake presence. se o bot for banido por causa de erros, mudar isso pra uma task async
+
+class MyClient(disnake.Client):
+    async def on_ready(self):
+        print(f'[CONSOLE] Bot started.')
+
 @client.event
 async def on_ready():
     await client.change_presence(status=disnake.Status.online, activity=disnake.Game(name=f"Running on {len(client.guilds)} factions!"))

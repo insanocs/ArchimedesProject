@@ -1,10 +1,10 @@
-import websocket
-import httpx
 import asyncio
-
-from pickletools import optimize
-from io import BytesIO
 import time
+from io import BytesIO
+from pickletools import optimize
+
+import httpx
+import websocket
 from PIL import Image
 
 canvas = {

@@ -1,15 +1,16 @@
-import disnake
-from disnake.ext import commands
-import time
-import json
 import asyncio
-from PIL import Image, ImageChops
-import requests
-from io import BytesIO
-from funcs import template, chunk, dataBase
+import json
 import os
+import time
+from io import BytesIO
+
+import disnake
 import matplotlib.pyplot as plt
+import requests
+from disnake.ext import commands
+from funcs import chunk, dataBase, template
 from funcs.planet import PlanetHistory
+from PIL import Image, ImageChops
 
 
 class DiffButton(disnake.ui.View):

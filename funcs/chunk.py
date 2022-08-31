@@ -1,8 +1,10 @@
-from time import time
 import asyncio
+from time import time
+
 import httpx
 import numpy as np
-from PIL import Image, ImageOps, ImageChops
+from PIL import Image, ImageChops, ImageOps
+
 
 class TemplateSt:
     def __init__(self):
@@ -51,6 +53,7 @@ async def compareImg(inter, coords, filename, tempName, version):
         resp = await client.get(
             f"https://pixelplanet.fun/chunks/0/{x}/{y}.bmp")
         resp = resp.content
+        print(len(resp))
 
         match version:
             case 'diff':
