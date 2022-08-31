@@ -2,17 +2,20 @@ import disnake
 from disnake.ext import commands
 import time
 import json
+import asyncio
 from PIL import Image, ImageChops
 import requests
 from io import BytesIO
 from funcs import template, chunk, dataBase
 import os
 import matplotlib.pyplot as plt
+from funcs.planet import PlanetHistory
+
 
 class DiffButton(disnake.ui.View):
     def __init__(self, url):
         super().__init__()
-        self.url = url 
+        self.url = url
         # Link buttons cannot be made with the decorator
         # Therefore we have to manually create one.
         # We add the quoted url to the button, and add the button to the view.
@@ -22,196 +25,409 @@ class DiffButton(disnake.ui.View):
     # stop the View from listening to more input.
     # We also send the user an ephemeral message that we're confirming their choice.
     @disnake.ui.button(label="Chunks", style=disnake.ButtonStyle.green, disabled=False)
-    async def chunks(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+    async def chunks(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
         self.chunks.disabled = True
         await interaction.response.edit_message(view=self)
-        embed=disnake.Embed(color=0xff0000)
-        embed.set_author(name="Template chunks", icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA")
-        embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256")
+        embed = disnake.Embed(color=0xFF0000)
+        embed.set_author(
+            name="Template chunks",
+            icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA",
+        )
+        embed.set_thumbnail(
+            url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256"
+        )
         embed.add_field(name="Chunks:", value="number of chunks", inline=False)
         embed.set_image(file=disnake.File("bigchunks.png"))
         embed.set_footer(text="sent at")
         await interaction.followup.send(embed=embed)
-        #self.stop()
+        # self.stop()
 
     # This one is similar to the confirmation button except sets the inner value to `False`
     @disnake.ui.button(label="Data", style=disnake.ButtonStyle.primary, disabled=False)
-    async def data(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+    async def data(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
         self.data.disabled = True
         await interaction.response.edit_message(view=self)
-        await interaction.followup.send("Cancelling",file=disnake.File('plot.png'))
-        #self.stop()
+        await interaction.followup.send("Cancelling", file=disnake.File("plot.png"))
+        # self.stop()
 
 
 class Diff(commands.Cog):
     def __init__(self, client):
         self.client = client
+
     @commands.Cog.listener("on_slash_command_error")
     async def error_handler(self, interaction, error):
         if isinstance(error, commands.CommandOnCooldown):
-            await interaction.response.send_message(f'You have to wait {error.retry_after:.1f} seconds before using that command again.')
+            await interaction.response.send_message(
+                f"You have to wait {error.retry_after:.1f} seconds before using that command again."
+            )
         if isinstance(error, commands.MissingPermissions):
-            await interaction.response.send_message(f'Only admins of a server can remove the template. And you don\'t seem to be one. (no ban_members permissions)', file=disnake.File('noperms.gif'))
+            await interaction.response.send_message(
+                f"Only admins of a server can remove the template. And you don't seem to be one. (no ban_members permissions)",
+                file=disnake.File("noperms.gif"),
+            )
+
     @commands.cooldown(1, 5)
     @commands.slash_command()
-    async def add(self, inter: disnake.ApplicationCommandInteraction, name: str, canvas: str, x: int, y: int, image_link: str):
-        canvasList = ["e","1","m"]
-        print(f'[CONSOLE] New template being added from: {inter.guild.name}')
-        #Checar se o comando tá certo
-        if '_' in name:
-            inter.response.send_message(f"Sorry. You can't use _(underline) in your template name.")
-            print('[ERROR] User added template name with "_"(underline). Stopping operation')
-        #Checar se o comando tem um canvas existente
+    async def add(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        name: str,
+        canvas: str,
+        x: int,
+        y: int,
+        image_link: str,
+    ):
+        canvasList = ["e", "1", "m"]
+        print(f"[CONSOLE] New template being added from: {inter.guild.name}")
+        # Checar se o comando tá certo
+        if "_" in name:
+            inter.response.send_message(
+                f"Sorry. You can't use _(underline) in your template name."
+            )
+            print(
+                '[ERROR] User added template name with "_"(underline). Stopping operation'
+            )
+        # Checar se o comando tem um canvas existente
         else:
             if canvas in canvasList:
                 try:
-                    #Checar se o comando tem x e y válidos
-                    print(f'x:{x},y:{y}')
+                    # Checar se o comando tem x e y válidos
+                    print(f"x:{x},y:{y}")
                     x = int(x)
                     y = int(y)
-                    print(f'x:{type(x)},y:{type(y)}')
+                    print(f"x:{type(x)},y:{type(y)}")
                     if abs(x) >> 32768 or abs(y) >> 32768:
-                        await inter.response.send_message(f"Coordinates can't be higher than 32768 or lower than -32768")
+                        await inter.response.send_message(
+                            f"Coordinates can't be higher than 32768 or lower than -32768"
+                        )
                     else:
                         try:
-                            #checar modo da url
+                            # checar modo da url
                             url = image_link
-                            print(f'[CONSOLE] Found url: {url}')
+                            print(f"[CONSOLE] Found url: {url}")
                             response = requests.get(url, stream=True)
-                            img = Image.open(BytesIO(response.content)).convert('RGBA')
-                            saveResult = template.saveTemplate(name, img, [str(x),str(y)], canvas, inter.guild.id)
+                            img = Image.open(BytesIO(response.content)).convert("RGBA")
+                            saveResult = template.saveTemplate(
+                                name, img, [str(x), str(y)], canvas, inter.guild.id
+                            )
                             if saveResult == 0:
-                                await inter.response.send_message("Seems like your faction still need a setup. Use p!setup (name)")
+                                await inter.response.send_message(
+                                    "Seems like your faction still need a setup. Use p!setup (name)"
+                                )
                             elif saveResult == 1:
-                                await inter.response.send_message("Another template has already been created with that name.")
+                                await inter.response.send_message(
+                                    "Another template has already been created with that name."
+                                )
                             elif saveResult == 2:
-                                await inter.response.send_message(f"Template successfully created as {name}")
-                                print(f"Template created as {name} for {inter.guild.id}")
+                                await inter.response.send_message(
+                                    f"Template successfully created as {name}"
+                                )
+                                print(
+                                    f"Template created as {name} for {inter.guild.id}"
+                                )
                         except IndexError as e:
-                            await inter.response.send_message(f"Sorry I couldn't find your image. Try attaching it to a discord message and linking it on the command.'")
+                            await inter.response.send_message(
+                                f"Sorry I couldn't find your image. Try attaching it to a discord message and linking it on the command.'"
+                            )
                 except Exception as e:
-                    await inter.response.send_message(f'Something seems to have gone wrong. Is your X and Y numbers?')
-                    print(f'[ERROR] X and Y arguments must be numbers. {e}')
+                    await inter.response.send_message(
+                        f"Something seems to have gone wrong. Is your X and Y numbers?"
+                    )
+                    print(f"[ERROR] X and Y arguments must be numbers. {e}")
                     return
             else:
-                await ctx.channel.send(f'Unsupported canvas OR wrong usage of command. Type p!canvaslist or or p!help for more info.')
+                await ctx.channel.send(
+                    f"Unsupported canvas OR wrong usage of command. Type p!canvaslist or or p!help for more info."
+                )
+
     @commands.cooldown(1, 5)
     @commands.slash_command()
-    @commands.has_permissions(ban_members = True, kick_members = True)
-    async def remove(self, inter: disnake.ApplicationCommandInteraction,name: str):
+    @commands.has_permissions(ban_members=True, kick_members=True)
+    async def remove(self, inter: disnake.ApplicationCommandInteraction, name: str):
         await inter.response.send_message("Removed")
 
     @commands.cooldown(1, 15)
     @commands.slash_command()
-    async def diff(self, inter: disnake.ApplicationCommandInteraction, name:str):
+    async def diff(self, inter: disnake.ApplicationCommandInteraction, name: str):
         userid = inter.guild.id
         username = inter.user.name
-        print(f'[CONSOLE] Started Diff command for {username}: {name}')
-        guildFolders = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
-        templateArr = [temp.split('_') for temp in os.listdir(f'./factions/{guildFolders[0]}') if temp.endswith('.png') and temp.split('_')[1].startswith(f"{name}")]
+        print(f"[CONSOLE] Started Diff command for {username}: {name}")
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templateArr = [
+            temp.split("_")
+            for temp in os.listdir(f"./factions/{guildFolders[0]}")
+            if temp.endswith(".png") and temp.split("_")[1].startswith(f"{name}")
+        ]
         _n, tempName, x, y, canvas, fileFormat = templateArr[0]
-        tot, err, elapsed = await chunk.compareImg(inter,[int(x),int(y)],f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",tempName, 'diff')
-        dataBase.writeNewNumeric(inter.guild.id, tempName, time.time(), (tot-err))
-        print(f'[CONSOLE] Unpacking .csv data')
+        tot, err, elapsed = await chunk.compareImg(
+            inter,
+            [int(x), int(y)],
+            f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",
+            tempName,
+            "diff",
+        )
+        dataBase.writeNewNumeric(inter.guild.id, tempName, time.time(), (tot - err))
+        print(f"[CONSOLE] Unpacking .csv data")
         processed_data = dataBase.readNumericData(inter.guild.id, tempName)
-        print('data returned')
-        print(f'processed_data[-2]:{processed_data[-2]} processed_data[-4]: {processed_data[-4]} processed_data[-1]: {processed_data[-1]} processed_data[-3]: {processed_data[-3]}')
-        print(processed_data[-2]-processed_data[-4])
-        pixel_rate = (processed_data[-2]-processed_data[-4])/((processed_data[-1]-processed_data[-3])/60/60)
+        print("data returned")
+        print(
+            f"processed_data[-2]:{processed_data[-2]} processed_data[-4]: {processed_data[-4]} processed_data[-1]: {processed_data[-1]} processed_data[-3]: {processed_data[-3]}"
+        )
+        print(processed_data[-2] - processed_data[-4])
+        pixel_rate = (processed_data[-2] - processed_data[-4]) / (
+            (processed_data[-1] - processed_data[-3]) / 60 / 60
+        )
         print(pixel_rate)
         if pixel_rate == 0:
-            expected_time = f'This is not going anywhere. 0 px/h'
+            expected_time = f"This is not going anywhere. 0 px/h"
         if pixel_rate > 0:
             expected_time = f'{(tot/pixel_rate) if (tot/pixel_rate) < 36 else (tot/pixel_rate/24):.2f} {"hours" if (tot/pixel_rate) < 36 else "days"}'
         if pixel_rate < 0:
             expected_time = f'{(tot/pixel_rate) if abs(tot/pixel_rate) < 36 else (tot/pixel_rate/24):.2f} {"hours" if abs(tot/pixel_rate) < 36 else "days"}'
-        print('starting to plot')
+        print("starting to plot")
         xx = []
-        print(f'processed data len: {len(processed_data)}')
+        print(f"processed data len: {len(processed_data)}")
         print(processed_data)
-        diffs=0
+        diffs = 0
         for i in range(0, 32):
-            if (i%2) != 0: #SE É IMPAR
+            if (i % 2) != 0:  # SE É IMPAR
                 if processed_data[i] == 0:
                     pass
                 else:
-                    xx.append((processed_data[32-1]-processed_data[i])/60/60)
+                    xx.append((processed_data[32 - 1] - processed_data[i]) / 60 / 60)
                     diffs = diffs + 1
             else:
                 pass
-        print('xx appended')
+        print("xx appended")
         yy = []
         for i in range(0, len(processed_data)):
-            if (i%2) == 0:
-                if processed_data[i+1] == 0:
+            if (i % 2) == 0:
+                if processed_data[i + 1] == 0:
                     pass
                 else:
-                    yy.append(100*processed_data[i]/tot)
-            else: 
+                    yy.append(100 * processed_data[i] / tot)
+            else:
                 pass
         print(xx)
         print(yy)
-        with plt.style.context('dark_background'):
-            print('yy appended')
-            plt.plot(xx,yy, 'g-o')
-            print('plot created')
-            plt.title(f'{tempName} percentage in the last {diffs} diffs')
+        with plt.style.context("dark_background"):
+            print("yy appended")
+            plt.plot(xx, yy, "g-o")
+            print("plot created")
+            plt.title(f"{tempName} percentage in the last {diffs} diffs")
             plt.xlim(max(xx), min(xx))
-            plt.ylabel('Percentage')
-            plt.xlabel('Hours since this diff')
-            plt.savefig('plot.png')
-            print('plot created')
+            plt.ylabel("Percentage")
+            plt.xlabel("Hours since this diff")
+            plt.savefig("plot.png")
+            print("plot created")
             plt.close()
-        print('plot closed')
-        embed=disnake.Embed(title="Teleport to coordinates", url=f"https://www.pixelplanet.fun/#d,{x},{y},10", description=f"This took the bot {elapsed:.1f} seconds", color=0x00ff00)
-        embed.set_author(name="Template progress", url="https://www.google.com.br/", icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA")
-        embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256")
-        embed.add_field(name="Placed / Needed", value=f"{tot - err:,} / {tot:,} ({100*((tot-err)/tot):.1f}%)", inline=True)
-        embed.add_field(name="Errors", value=f"{err:,} ({processed_data[-2]-processed_data[-4]})", inline=False)
-        embed.add_field(name="Pixel rate", value=f"{f'{round(pixel_rate)} px/h' if processed_data[-4] != 0 else 'NaN px/h'}", inline=False)
-        embed.add_field(name="Expected time at this rate", value=f"{expected_time}", inline=True)
-        embed.set_footer(text=f"Last time this template was diffed: {time.ctime(processed_data[-3])}")
+        print("plot closed")
+        embed = disnake.Embed(
+            title="Teleport to coordinates",
+            url=f"https://www.pixelplanet.fun/#d,{x},{y},10",
+            description=f"This took the bot {elapsed:.1f} seconds",
+            color=0x00FF00,
+        )
+        embed.set_author(
+            name="Template progress",
+            url="https://www.google.com.br/",
+            icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA",
+        )
+        embed.set_thumbnail(
+            url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256"
+        )
+        embed.add_field(
+            name="Placed / Needed",
+            value=f"{tot - err:,} / {tot:,} ({100*((tot-err)/tot):.1f}%)",
+            inline=True,
+        )
+        embed.add_field(
+            name="Errors",
+            value=f"{err:,} ({processed_data[-2]-processed_data[-4]})",
+            inline=False,
+        )
+        embed.add_field(
+            name="Pixel rate",
+            value=f"{f'{round(pixel_rate)} px/h' if processed_data[-4] != 0 else 'NaN px/h'}",
+            inline=False,
+        )
+        embed.add_field(
+            name="Expected time at this rate", value=f"{expected_time}", inline=True
+        )
+        embed.set_footer(
+            text=f"Last time this template was diffed: {time.ctime(processed_data[-3])}"
+        )
         embed.set_image(file=disnake.File("difference.png"))
-        view = DiffButton(f'https://www.pixelplanet.fun/#d,{x},{y},10')
+        view = DiffButton(f"https://www.pixelplanet.fun/#d,{x},{y},10")
         await inter.edit_original_message(embed=embed, view=view)
         await inter.wait()
 
     @commands.cooldown(1, 15)
     @commands.slash_command()
-    async def virgin(self, inter:disnake.ApplicationCommandInteraction, name:str):
+    async def virgin(self, inter: disnake.ApplicationCommandInteraction, name: str):
         userid = inter.guild.id
         username = inter.user.name
-        guildFolders = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
-        templateArr = [temp.split('_') for temp in os.listdir(f'./factions/{guildFolders[0]}') if temp.split('_')[1].startswith(f"{name}")]
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templateArr = [
+            temp.split("_")
+            for temp in os.listdir(f"./factions/{guildFolders[0]}")
+            if temp.endswith(".png") and temp.split("_")[1].startswith(f"{name}")
+        ]
         _n, tempName, x, y, canvas, fileFormat = templateArr[0]
-        virginpixels, elapsed = await chunk.compareImg(inter,[int(x),int(y)],f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",tempName, 'virgins')
-        embed=disnake.Embed(title=f"{tempName}", url=f"https://www.pixelplanet.fun/#d,{x},{y},10", description=f"This took the bot {elapsed:.1f} seconds", color=0x00ff00)
-        embed.set_author(name="Virgin pixels", url="https://www.google.com.br/", icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA")
-        embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256")
-        embed.add_field(name="Number of virgin pixels", value=f"{virginpixels:,}", inline=True)
+        virginpixels, elapsed = await chunk.compareImg(
+            inter,
+            [int(x), int(y)],
+            f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",
+            tempName,
+            "virgins",
+        )
+        embed = disnake.Embed(
+            title=f"{tempName}",
+            url=f"https://www.pixelplanet.fun/#d,{x},{y},10",
+            description=f"This took the bot {elapsed:.1f} seconds",
+            color=0x00FF00,
+        )
+        embed.set_author(
+            name="Virgin pixels",
+            url="https://www.google.com.br/",
+            icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA",
+        )
+        embed.set_thumbnail(
+            url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256"
+        )
+        embed.add_field(
+            name="Number of virgin pixels", value=f"{virginpixels:,}", inline=True
+        )
         embed.set_image(file=disnake.File("virgins.png"))
         await inter.edit_original_message(embed=embed)
 
+    @commands.cooldown(1, 30)
+    @commands.slash_command()
+    async def timelapse(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        name: str,
+        day: str,
+        month: str,
+        year: str,
+    ):
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templateArr = [
+            temp.split("_")
+            for temp in os.listdir(f"./factions/{guildFolders[0]}")
+            if temp.endswith(".png") and temp.split("_")[1].startswith(f"{name}")
+        ]
+        _n, tempName, x, y, canvas, fileFormat = templateArr[0]
+        await inter.response.send_message("Fetching")
+        ph = PlanetHistory(
+            canvas,
+            [x, y],
+            f"./factions/{guildFolders[0]}/_{tempName}_{x}_{y}_{canvas}_{fileFormat}",
+            str(day),
+            str(month),
+            str(year),
+        )
+        elapsed = await ph.make_images()
+        embed = disnake.Embed(
+            title=f"{tempName}",
+            description=f"This took the bot {elapsed:.1f} seconds",
+            url=f"https://www.pixelplanet.fun/#d,{x},{y},10",
+            color=0x00FF00,
+        )
+        embed.set_author(
+            name="Timelapse 24h",
+            url="https://www.google.com.br/",
+            icon_url="https://imgs.search.brave.com/fmspp-a8_pNrkOHAPi-HMfOFc_UfS0Pyc2lkHN5B8qQ/rs:fit:256:256:1/g:ce/aHR0cHM6Ly9leHRl/cm5hbC1wcmV2aWV3/LnJlZGQuaXQvUVhp/ejlLT0o1ODJFUlNw/MjNOWHVpSldzNjVS/dVRNa2JLWU1vbGx1/emNHVS5qcGc_YXV0/bz13ZWJwJnM9Zjdk/NjY0ZTJmNDM3OGI2/YjM2ZmFkMmY3M2U0/OTA1Y2U0MzU4NmVl/ZA",
+        )
+        embed.set_thumbnail(
+            url="https://cdn.discordapp.com/avatars/944655646157066280/95d8bee5622528bc2043982ace073924.png?size=256"
+        )
+        embed.set_image(file=disnake.File("teste.gif"))
+        await inter.edit_original_message(embed=embed)
+
     @virgin.autocomplete("name")
-    async def namecomplete(self, inter: disnake.ApplicationCommandInteraction,string: str):
+    async def namecomplete(
+        self, inter: disnake.ApplicationCommandInteraction, string: str
+    ):
         string = string.lower()
-        guildFolders = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
-        templates = [temp.split('_')[1] for temp in os.listdir(f'./factions/{guildFolders[0]}')]
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templates = [
+            temp.split("_")[1] for temp in os.listdir(f"./factions/{guildFolders[0]}")
+        ]
         print(templates)
         return [lang for lang in templates if string in lang.lower()]
+
     @remove.autocomplete("name")
-    async def namecomplete(self, inter: disnake.ApplicationCommandInteraction,string: str):
+    async def namecomplete(
+        self, inter: disnake.ApplicationCommandInteraction, string: str
+    ):
         string = string.lower()
-        guildFolders = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
-        templates = [temp.split('_')[1] for temp in os.listdir(f'./factions/{guildFolders[0]}')]
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templates = [
+            temp.split("_")[1] for temp in os.listdir(f"./factions/{guildFolders[0]}")
+        ]
         print(templates)
         return [lang for lang in templates if string in lang.lower()]
+
     @diff.autocomplete("name")
-    async def namecomplete(self, inter: disnake.ApplicationCommandInteraction,string: str):
+    async def namecomplete(
+        self, inter: disnake.ApplicationCommandInteraction, string: str
+    ):
         string = string.lower()
-        guildFolders = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
-        templates = [temp.split('_')[1] for temp in os.listdir(f'./factions/{guildFolders[0]}') if temp.endswith('.png')]
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templates = [
+            temp.split("_")[1]
+            for temp in os.listdir(f"./factions/{guildFolders[0]}")
+            if temp.endswith(".png")
+        ]
         return [lang for lang in templates if string in lang.lower()]
+
+    @timelapse.autocomplete("name")
+    async def namecomplete(
+        self, inter: disnake.ApplicationCommandInteraction, string: str
+    ):
+        string = string.lower()
+        guildFolders = [
+            filename
+            for filename in os.listdir("./factions/")
+            if filename.startswith(f"{inter.guild.id}")
+        ]
+        templates = [
+            temp.split("_")[1]
+            for temp in os.listdir(f"./factions/{guildFolders[0]}")
+            if temp.endswith(".png")
+        ]
+        return [lang for lang in templates if string in lang.lower()]
+
 
 def setup(client):
     client.add_cog(Diff(client))
