@@ -4,6 +4,7 @@ from xmlrpc import client
 import disnake
 from disnake.ext import commands
 from disnake.ext.commands import Command, HelpCommand
+import shutil
 
 
 class Basics(commands.Cog):
@@ -21,11 +22,11 @@ class Basics(commands.Cog):
     #    string = string.lower()
     #    return [lang for lang in LANGUAGES if string in lang.lower()]
 
-    @commands.slash_command()
+    @commands.slash_command(description="Sends a simple list of canvas that are available")
     async def canvaslist(self, ctx):
         await inter.response.send_message("Canvas list: \n'e':earth \n'1':1bit \n'm':moon")
     
-    @commands.slash_command()
+    @commands.slash_command(description="Creates a faction (needed to use the bot)")
     async def setup(self, inter: disnake.ApplicationCommandInteraction, name: str):
         if '_' in name:
             await inter.response.send_message("Sorry you can't use underline (_) in your faction name.")
@@ -35,9 +36,10 @@ class Basics(commands.Cog):
             if len(prefixed) == 0:
                 if not os.path.exists(newpath):
                     os.makedirs(newpath)
-                    inter.response.send_message("👍 You can use the bot now!")
+                    shutil.copy('_phi_-418_-21_e_.png', newpath)
+                    await inter.response.send_message("👍 You can use the bot now!")
                 else:
-                    inter.response.send_message("Looks like you've already setup your faction! If it's still not working, notify <@919189528965709875>")
+                    await inter.response.send_message("Looks like you've already setup your faction! If it's still not working, notify <@919189528965709875>")
             else:
                 await inter.response.send_message(f"This server already has a faction named {[filename for filename in os.listdir('./factions/') if filename.startswith(f'{inter.guild.id}')][0]} \nTo change your faction's name use p!setupchange")
     @commands.slash_command(description="Changes your faction name")
@@ -45,14 +47,10 @@ class Basics(commands.Cog):
         if '_' in name:
             await inter.response.send_message("Sorry you can't use underline (_) in your faction name.")
         else:
-            prefixed = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{ctx.message.guild.id}")]
+            print('started it.')
+            prefixed = [filename for filename in os.listdir('./factions/') if filename.startswith(f"{inter.guild.id}")]
+            print(f'PREFIXED: {prefixed}')
             os.rename(f'./factions/{prefixed[0]}',f'./factions/{inter.guild.id}_{name}')
             await inter.response.send_message(f'Faction name changed to {name} succesfully')
-    @commands.command()
-    @commands.is_owner()
-    async def reload(ctx, extension):
-        bot.reload_extension(f"cogs.{extension}")
-        embed = discord.Embed(title='Reload', description=f'{extension} successfully reloaded', color=0xff00c8)
-        await ctx.send(embed=embed)
 def setup(client):
     client.add_cog(Basics(client))

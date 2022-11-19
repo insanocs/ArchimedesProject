@@ -21,78 +21,44 @@ except:
     print('Error parsing config file')
     exit()
 
-print(f'[CONSOLE] Loaded prefix as: {prefix}.')
 #config do bote
-client = commands.Bot(command_prefix = f"{prefix}")
 #disnake presence. se o bot for banido por causa de erros, mudar isso pra uma task async
 
-class MyClient(disnake.Client):
+class MyClient(disnake.ext.commands.Bot):
     async def on_ready(self):
-        print(f'[CONSOLE] Bot started.')
+        print('-'*10)
+        print(f'[CONSOLE] Bot started as {self.user}. ID: {self.user.id}. Latency: {self.latency}')
+        print('-'*10)
+        await self.change_presence(status=disnake.Status.online, activity=disnake.Game(name=f"We're back: TYPE /setup (faction_name) BEFORE USING THE BOT"))
+        initial_extensions = [("cogs." + filename[:-3]) for filename in os.listdir('./cogs')]
+        for extension in initial_extensions:
+            if extension.startswith('cogs.__pycach'):
+                pass
+            else:
+                self.load_extension(extension)
 
-@client.event
-async def on_ready():
-    await client.change_presence(status=disnake.Status.online, activity=disnake.Game(name=f"Running on {len(client.guilds)} factions!"))
-    print(client.guilds)
-    print(f'[CONSOLE] Bot running!')
+    #async def on_message(self, message):
+    #    if message.content.startswith("g!"):
+    #        channel = message.channel
+    #        message.reply('Hi, we\'ve moved to slash commands! Try /setup (name of your faction) and then /add and /diff!')
+    #    if ' phi ' in message.content.lower() or ' phi' in message.content.lower() or 'phi ' in message.content.lower() or 'phi' == message.content.lower():
+    #        await message.add_reaction('🤔')
+    #    if message.author.bot:
+    #        return
+    async def on_guild_remove(self, guild):
+        print("[CONSOLE] Kicked from guild '{0.name}' (ID: {0.id})".format(guild))
 
-#só pra logging
-@client.event
-async def on_guild_remove(guild):
-    print("[CONSOLE] Kicked from guild '{0.name}' (ID: {0.id})".format(guild))
+    async def on_guild_join(self, guild):
+        #Configuração inicial pra cada server. Neccessário que rodem o comando de configuração
+        print(f"[CONSOLE] Joined new guild '{guild.name}' (ID: {guild.id})")
+        await print_welcome_message(guild)
 
-#comando quase inutil
-#@client.event
-#async def on_message(message):
-    #if ' phi ' in message.content.lower() or ' phi' in message.content.lower() or 'phi ' in message.content.lower() or 'phi' == message.content.lower():
-        #await message.add_reaction('🤔')
-    #if message.author.bot:
-        #return
-    #await client.process_commands(message)
+intents = disnake.Intents.default()
+intents.members = True
+intents.message_content = True
+client = MyClient(intents=intents)
 
-@client.event
-async def on_guild_join(guild):
-    #Configuração inicial pra cada server. Neccessário que rodem o comando de configuração
-    print(f"[CONSOLE] Joined new guild '{guild.name}' (ID: {guild.id})")
-    repeated = False
-    
-    for i in os.listdir('factions/'):
-        if i.startswith(f'{guild.id}'):
-            print('[CONSOLE] This faction already exists.')
-            repeated = True
-        else:
-            pass
-    if repeated == False:
-        os.mkdir(f'factions/{guild.id}_{guild.name}')
-        print(f'[CONSOLE] Created a new faction {guild.name} (ID: {guild})')
-    await print_welcome_message(guild)
-
-@client.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(f'You have to wait {error.retry_after:.1f} seconds before using that command again.')
-    if isinstance(error, commands.CommandNotFound):
-        await ctx.send(f'Seems like this command doesn\'t exist, try using {prefix}help')
-    if isinstance(error, commands.CommandInvokeError):
-        await ctx.send(f'Command has raised a weird exception. Please notify @nisano#2763')
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send(f'Only admins of a server can remove the template. And you don\'t seem to be one. (no ban_members permissions)', file=disnake.File('noperms.gif'))
-
-@client.command()
-@commands.is_owner()
-async def rena(ctx, name):
-    await client.user.edit(username=name)
-    print(f'[CONSOLE] Renamed! New bot name is {name}')
-
-initial_extensions = [("cogs." + filename[:-3]) for filename in os.listdir('./Cogs')]
-
-if __name__ == '__main__':
-    for extension in initial_extensions:
-        if extension.startswith('cogs.__pycach'):
-            pass
-        else:
-            client.load_extension(extension)
-    print('[CONSOLE] All cogs loaded.')
+print('[CONSOLE] All cogs loaded.')
 
 async def print_welcome_message(guild):
     #yes this is straight from starlight glimmer

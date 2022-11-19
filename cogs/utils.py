@@ -1,5 +1,5 @@
 from funcs.planet import *
-from funcs.paginator import *
+from funcs.buttons.pageButton import *
 
 import disnake
 from disnake.ext import commands

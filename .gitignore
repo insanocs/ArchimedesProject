@@ -5,3 +5,4 @@ cogs/__pycache__/Diff.cpython-310.pyc
 config.ini
 *.png
 config.ini
+*.csv
