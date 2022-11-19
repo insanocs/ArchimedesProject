@@ -1,0 +1,8 @@
+disnake
+pillow
+configparser
+httpx
+websocket-client
+matplotlib
+numpy
+requests

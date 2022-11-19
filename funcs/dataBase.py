@@ -50,7 +50,6 @@ def writeNewNumeric(factionID,tempName, diffAt, diff):
 			csv_writer = csv.writer(f, delimiter=',')
 			for line in previous_lines:
 				if line[0] == tempName:
-					print(f'Line: {line}')
 					row = []
 					row.append(f'{tempName}')
 					for i in range(3,33):

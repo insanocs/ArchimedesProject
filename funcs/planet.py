@@ -18,6 +18,18 @@ canvas = {
 
 canvas_convert = {"e": "0", "m": "1", "1": "7"}
 
+class TemplateSt:
+    def __init__(self):
+        self.totalChunks = 0
+        self.madeChunks = 0
+        self.messageSent = True
+        self.timeMessage = 0
+        self.thispc = 20
+        self.virginpixels = 0
+    def percentage(self):
+        return 100*(self.madeChunks/self.totalChunks)
+    def thisPercentage(self):
+        self.thispc = self.thispc + 20
 
 class Pixelplanet:
     async def get_online() -> list:
@@ -73,6 +85,8 @@ class PlanetHistory:
         self.year = year
         self.imgs = []
 
+        template = TemplateSt()
+
         img = Image.open(f"{filename}").convert("RGBA")
         size = img.size
 
@@ -96,8 +110,14 @@ class PlanetHistory:
                 Image.open(BytesIO(resp.content)),
                 (256 * (x - self.start_x), 256 * (y - self.start_y)),
             )
+        template.madeChunks = template.madeChunks + 1
+        if template.percentage() > template.thispc:
+            template.thisPercentage()
+            await inter.edit_original_message(f'Getting chunks for template {tempName}: {template.madeChunks}/{template.totalChunks} ({round(template.percentage())}%)\n[{"🟩"*(round(template.percentage()/10))}{"🟥"*(10-round(template.percentage()/10))}]')
+        
 
     async def get_chunks_blob(self, time) -> None:
+        await inter.response.send_message(f"Getting your fresh chunks: 0/{template.totalChunks} (0%)\n[{'🟥'*10}]")
         async with httpx.AsyncClient() as client:
             tasks = []
             img = Image.new(
@@ -111,14 +131,15 @@ class PlanetHistory:
 
             for y_index in range(self.start_y, self.last_y):
                 for x_index in range(self.start_x, self.last_x):
+                    template.totalChunks = template.totalChunks + 1
                     tasks.append(
                         asyncio.ensure_future(
                             self.get_history_chunk(client, x_index, y_index, time, img)
                         )
                     )
-
             await asyncio.gather(*tasks)
             self.imgs.append(img)
+            await inter.edit_original_message(f"Getting your fresh chunks: {template.totalChunks}/{template.totalChunks} (100%)\n[{'🟩'*10}] \nChunks processed.\nMaking your gif")
 
     async def make_images(self) -> None:
         start = time.time()
